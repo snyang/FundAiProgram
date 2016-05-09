@@ -18,16 +18,7 @@ class productContext:
 class restClientHelper:
 
     def getConnect():
-        url = 'http://192.168.85.183:35357/v2.0/tokens'
-        values = {"auth": {"passwordCredentials": {
-            "username": "alan", "password": "admin"}}}
-        params = json.dumps(values)
-        headers = {"Content-type": "application/json",
-                   "Accept": "application/json"}
-        req = urllib.Request(url, params, headers)
-        response = urllib.urlopen(req)
-        print response.read()
-
+        pass
 
 class fundDataHelper:
 
@@ -113,4 +104,4 @@ class systemHelper:
 
     def init():
         sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf8')
-        fileHelper.createDirectory(spiderHelper.DATA_DIRECTORY)
+        fileHelper.createDirectory(productContext.DataDirectory)

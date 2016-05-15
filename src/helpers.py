@@ -1,25 +1,64 @@
 import io
 import json
+import glob
 import os
 import sys
 import urllib.request
+import sqlite3
 from datetime import *
 
 from bs4 import BeautifulSoup
 
 __all__ = ['fundDataHelper', 'spiderHelper',
-           'hostInfoHelper', 'fileHelper', 'systemHelper']
+           'hostInfoHelper', 'fileHelper', 'systemHelper',
+           'productContext',
+           'sqliteHelper']
 
 
 class productContext:
     DataDirectory = "E:\Work\Data"
+    DatabaseFilePath = DataDirectory + "/db/fund.db"
 
 
-class restClientHelper:
+class sqliteHelper:
+    import sqlite3
 
-    def getConnect():
-        pass
+    def connect(dbPath = productContext.DatabaseFilePath):
+        try:
+            fileHelper.createParentDirectory(dbPath)
+            conn = sqlite3.connect(dbPath)
+            return conn
+        except Exception as e:
+            print("Error occurs. dbpath : '{}'.".format(dbPath))
+            raise
 
+    def close(conn):
+        conn.close()
+
+    def execute(conn, sql):
+        cur = None
+        with conn:
+            cur = conn.cursor()
+            cur.execute(sql)
+            conn.commit()
+        return cur
+
+    def executemany(conn, sql, params):
+        cur = None
+        with conn:
+            cur = conn.cursor()
+            cur.executemany(sql, params)
+            conn.commit()  
+        return cur
+
+    def executescript(conn, sql):
+        cur = None
+        with conn:
+            cur = conn.cursor()
+            cur.executescript(sql)
+            conn.commit()  
+        return cur
+        
 class fundDataHelper:
 
     def getFundCodes(fundString):
@@ -29,7 +68,7 @@ class fundDataHelper:
         return funds
 
     def getFundBaseInfo():
-        #fundManagers = soup.find("th", string="基金经理人").find_parent().find("td").find_all("a")
+        # fundManagers = soup.find("th", string="基金经理人").find_parent().find("td").find_all("a")
         # for manager in fundManagers :
         #    print(manager.get('href'))
         #    print(manager.text)
@@ -65,11 +104,7 @@ class spiderHelper:
         html = response.read()
         jsonStr = html.decode("utf-8")
 
-        if (fileName != None):
-            file = open(spiderHelper._getFilePath(fileName),
-                        "w", encoding=spiderHelper.FILE_ENCODING)
-            file.write(jsonStr)
-            file.close()
+        fileHelper.save(spiderHelper._getFilePath(fileName), jsonStr)
 
         return jsonStr
 
@@ -95,9 +130,26 @@ class hostInfoHelper:
 
 class fileHelper:
 
+    def createParentDirectory(path):
+        fileHelper.createDirectory(os.path.dirname(path))
+        
     def createDirectory(path):
         if not os.path.exists(path):
             os.makedirs(path)
+
+    def exists(path):
+        return os.path.exists(path)
+        
+    def save(fileName, content):
+        if (fileName != None):
+            file = open(fileName,
+                        "w", encoding=spiderHelper.FILE_ENCODING)
+            file.write(content)
+            file.close()
+
+    def delete(filePattern):
+        for f in glob.glob(filePattern):
+            os.remove(f)
 
 
 class systemHelper:

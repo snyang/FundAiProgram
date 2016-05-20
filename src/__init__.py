@@ -18,20 +18,26 @@ class Runner():
         systemHelper.init()
 
         startTime = datetime.now()
-        funds = fundDataHelper.getFundCodes(spiderHelper.getText(hostInfoHelper.getAllFundDataLink(), "all_fund.txt"))
         i  = 0
-        with ThreadPoolExecutor() as executor:
-            for fund in funds : 
-                try:
-                    i += 1
-                    fundCode = fund[0]
-                    future = executor.submit(self.get_baseinfo, fundCode)
-                    future.add_done_callback(threadCallbackHandler(fundCode).handle_callback)
-                except Exception as e:
-                    print("Failed {0}. {1}".format(fundCode, e))
+        day = date.today
+        for i in range(10):
+            day = date.today() - timedelta(i)
+            print(day, flush=True)
+            spiderHelper.saveRequest(hostInfoHelper.getAllFundDataLink(day), "all_fund_{0}.txt".format(day.strftime('%Y_%m_%d')))
+            #funds = fundDataHelper.getFundHistory()
+        
+        #with ThreadPoolExecutor() as executor:
+            #for fund in funds : 
+                #try:
+                    #i += 1
+                    #fundCode = fund[0]
+                    #future = executor.submit(self.get_baseinfo, fundCode)
+                    #future.add_done_callback(threadCallbackHandler(fundCode).handle_callback)
+                #except Exception as e:
+                    #print("Failed {0}. {1}".format(fundCode, e))
         
         # wait all threads finish.         
-        executor.shutdown(wait=True)
+        #executor.shutdown(wait=True)
         endTime = datetime.now()
         print("done. total {0} funds during {1}.".format(i, endTime - startTime))
     
@@ -45,17 +51,7 @@ class Runner():
 
         print(date.today().strftime('%Y-%m-%d'))
 
-class threadCallbackHandler:
-    def __init__(self, fundCode):
-        self.fundCode = fundCode
-        
-    def handle_callback(self, future) :
-        try:
-            if (future.exception() != None):
-                print("Failed {0}. Exception : {1}".format(self.fundCode, future.exception()))    
-        except CancelledError as e:
-            print("Cancelled {0}".format(self.fundCode))
-        print("Done {0}".format(self.fundCode)) 
+
         
 #By default, run.
 if __name__ == '__main__':

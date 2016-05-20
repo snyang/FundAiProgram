@@ -61,7 +61,7 @@ class juheClient :
         print("Done.")
      
     def createDB(self):
-        sql = r'''DROP TABLE IF EXISTS "FundHistory";
+        sql = '''DROP TABLE IF EXISTS "FundHistory";
 
                 CREATE TABLE "FundHistory" (
                 "FundCode" character varying(10) NOT NULL 
@@ -77,7 +77,7 @@ class juheClient :
                 ,CONSTRAINT PK_FundHistory PRIMARY KEY (FundCode, FundDate)
                 );
                 CREATE INDEX IK_FundHistory_FundDate_FundCode ON "FundHistory" (FundDate, FundCode);
-                    '''
+                '''
         conn = sqliteHelper.connect()
         try:
             sqliteHelper.executescript(conn, sql)
@@ -92,5 +92,4 @@ class juheClient :
 if __name__ == '__main__':
     import sys
     client = juheClient()
-    #fileHelper.delete(spiderHelper._getFilePath("fund_net_value_*.json"))
     client.createDB()

@@ -5,12 +5,13 @@ import os
 import sys
 import urllib.request
 import sqlite3
+import logging
 from datetime import *
-
 from bs4 import BeautifulSoup
 
-__all__ = ['fundDataHelper', 'spiderHelper',
-           'hostInfoHelper', 'fileHelper', 'systemHelper',
+__all__ = ['spiderHelper',
+           'fileHelper',
+           'systemHelper',
            'productContext',
            'sqliteHelper']
 
@@ -23,13 +24,13 @@ class productContext:
 class sqliteHelper:
     import sqlite3
 
-    def connect(dbPath = productContext.DatabaseFilePath):
+    def connect(dbPath=productContext.DatabaseFilePath):
         try:
             fileHelper.createParentDirectory(dbPath)
             conn = sqlite3.connect(dbPath)
             return conn
         except Exception as e:
-            print("Error occurs. dbpath : '{}'.".format(dbPath))
+            print("Error occurs. dbpath : '{0}'.".format(dbPath))
             raise
 
     def close(conn):
@@ -48,7 +49,7 @@ class sqliteHelper:
         with conn:
             cur = conn.cursor()
             cur.executemany(sql, params)
-            conn.commit()  
+            conn.commit()
         return cur
 
     def executescript(conn, sql):
@@ -56,23 +57,8 @@ class sqliteHelper:
         with conn:
             cur = conn.cursor()
             cur.executescript(sql)
-            conn.commit()  
+            conn.commit()
         return cur
-        
-class fundDataHelper:
-
-    def getFundCodes(fundString):
-        fundsArrayString = fundString[
-            fundString.find("[["): fundString.find("]]") + 2]
-        funds = eval(fundsArrayString)
-        return funds
-
-    def getFundBaseInfo():
-        # fundManagers = soup.find("th", string="基金经理人").find_parent().find("td").find_all("a")
-        # for manager in fundManagers :
-        #    print(manager.get('href'))
-        #    print(manager.text)
-        pass
 
 
 class spiderHelper:
@@ -99,47 +85,32 @@ class spiderHelper:
         soup = BeautifulSoup(html, "html.parser")
         return soup
 
-    def getText(url, fileName=None):
+    def saveRequest(url, fileName=None):
+        logging.getLogger().debug(url)
         response = urllib.request.urlopen(url)
         html = response.read()
-        jsonStr = html.decode("utf-8")
+        requestedContent = html.decode('gb2312', "backslashreplace")
 
-        fileHelper.save(spiderHelper._getFilePath(fileName), jsonStr)
+        fileHelper.save(spiderHelper._getFilePath(fileName), requestedContent)
 
-        return jsonStr
+        return requestedContent
 
     def _getFilePath(fileName):
         return "{}/{}".format(productContext.DataDirectory, fileName)
-
-
-class hostInfoHelper:
-    hostUrl = "http://fund.eastmoney.com"
-
-    def getAllFundLink():
-        return "{}/fund.html#os_0;isall_1;ft_;pt_1".format(hostInfoHelper.hostUrl)
-        getAllFundLink = staticmethod(getAllFundLink)
-
-    def getAllFundDataLink():
-        return "{0}/Data/Fund_JJJZ_Data.aspx?t=1&lx=0&dt={1}&atfc=&page=1,9999&onlySale=0".format(hostInfoHelper.hostUrl, date.today().strftime('%Y-%m-%d'))
-        getAllFundDataLink = staticmethod(getAllFundDataLink)
-
-    def getFundBaseInfoLink(fundCode):
-        return "{}/f10/jbgk_{}.html".format(hostInfoHelper.hostUrl, fundCode)
-        getFundBaseInfoLink = staticmethod(getFundBaseInfoLink)
 
 
 class fileHelper:
 
     def createParentDirectory(path):
         fileHelper.createDirectory(os.path.dirname(path))
-        
+
     def createDirectory(path):
         if not os.path.exists(path):
             os.makedirs(path)
 
     def exists(path):
         return os.path.exists(path)
-        
+
     def save(fileName, content):
         if (fileName != None):
             file = open(fileName,
@@ -147,13 +118,44 @@ class fileHelper:
             file.write(content)
             file.close()
 
+    def read(fileName):
+        if (fileName != None):
+            file = open(fileName,
+                        "r", encoding=spiderHelper.FILE_ENCODING)
+            content = file.read()
+            file.close()
+            return content
+
     def delete(filePattern):
         for f in glob.glob(filePattern):
             os.remove(f)
 
 
 class systemHelper:
-
+    startTime = datetime.now()
     def init():
+        systemHelper.start()
         sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf8')
         fileHelper.createDirectory(productContext.DataDirectory)
+
+        systemHelper.initLogger()
+
+    def initLogger():
+        logger = logging.getLogger()
+
+        logger.setLevel(logging.INFO)
+        # create console handler with a higher log level
+        ch = logging.StreamHandler(stream=sys.stdout)
+        ch.setLevel(logging.DEBUG)
+        formatter = logging.Formatter(
+            '%(levelname)s - %(asctime)s - %(message)s')
+        ch.setFormatter(formatter)
+        # add the handlers to the logger
+        logger.addHandler(ch)
+   
+    def start() :
+        startTime = datetime.now()
+    
+    def end() :
+        logging.getLogger().info("Done. during : %s.", (datetime.now() - startTime))
+        

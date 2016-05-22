@@ -6,6 +6,7 @@ import sys
 import urllib.request
 import sqlite3
 import logging
+import inspect
 from datetime import *
 from bs4 import BeautifulSoup
 
@@ -70,7 +71,7 @@ class spiderHelper:
         soup = BeautifulSoup(html, "html.parser")
 
         if (fileName != None):
-            file = open(spiderHelper._getFilePath(fileName),
+            file = open(spiderHelper.getFilePath(fileName),
                         "w", encoding=spiderHelper.FILE_ENCODING)
             file.write(soup.prettify())
             file.close()
@@ -78,29 +79,32 @@ class spiderHelper:
         return soup
 
     def getSoupFromFile(fileName):
-        file = open(spiderHelper._getFilePath(fileName),
+        file = open(spiderHelper.getFilePath(fileName),
                     "r", encoding=spiderHelper.FILE_ENCODING)
         html = file.read()
         file.close()
         soup = BeautifulSoup(html, "html.parser")
         return soup
 
-    def saveRequest(url, fileName=None):
+    def saveRequest(url, unicode="utf-8", fileName=None, fn_parse =None):
         logging.getLogger().debug(url)
         response = urllib.request.urlopen(url)
         html = response.read()
-        requestedContent = html.decode('gb2312', "backslashreplace")
+        requestedContent = html.decode(unicode, "backslashreplace")
 
-        fileHelper.save(spiderHelper._getFilePath(fileName), requestedContent)
+        if (fn_parse != None):
+            requestedContent = fn_parse(requestedContent)
+        if (fileName != None):
+            fileHelper.save(spiderHelper.getFilePath(fileName), requestedContent)
 
         return requestedContent
 
-    def _getFilePath(fileName):
+    def getFilePath(fileName):
         return "{}/{}".format(productContext.DataDirectory, fileName)
 
 
 class fileHelper:
-
+        
     def createParentDirectory(path):
         fileHelper.createDirectory(os.path.dirname(path))
 
@@ -154,8 +158,7 @@ class systemHelper:
         logger.addHandler(ch)
    
     def start() :
-        startTime = datetime.now()
-    
-    def end() :
-        logging.getLogger().info("Done. during : %s.", (datetime.now() - startTime))
+        systemHelper.startTime = datetime.now()
         
+    def end() :
+        logging.getLogger().info("Done(%s).", (datetime.now() - systemHelper.startTime))

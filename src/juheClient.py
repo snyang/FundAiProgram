@@ -28,13 +28,13 @@ class juheClient :
         content = f.read()
         jsonStr = content.decode("utf-8")
         
-        fileHelper.save(spiderHelper._getFilePath(fileName), jsonStr)
+        fileHelper.save(spiderHelper.getFilePath(fileName), jsonStr)
         
         return json.loads(jsonStr)
             
     def requestFundNetValue(self, fundtype=fund_net_value_type_all):
         # delete old files
-        fileHelper.delete(spiderHelper._getFilePath("fund_net_value_*.json"))
+        fileHelper.delete(spiderHelper.getFilePath("fund_net_value_*.json"))
         
         # fetch new files
         page = 1

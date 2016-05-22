@@ -20,7 +20,7 @@ class databaseClient :
                 ,"Price" numeric NOT NULL 
                 ,"RealPrice" numeric NOT NULL 
                 ,"IncrementRate" numeric NOT NULL 
-                ,"IncrementValue" numeric NOT NULL 
+                ,"IncrementValue" numeric 
                 ,CONSTRAINT PK_FundHistory PRIMARY KEY (FundCode, FundDate)
                 );
                 CREATE INDEX IK_FundHistory_FundDate_FundCode ON "FundHistory" (FundDate, FundCode);
@@ -65,7 +65,7 @@ class databaseClient :
         print("Fund history data are created.")
     
     def insert(self, fileName = "all_fund.txt"):
-        funds = fundDataHelper.getFundHistory(fileHelper.read(spiderHelper._getFilePath(fileName)))
+        funds = fundDataHelper.getFundHistory(fileHelper.read(spiderHelper.getFilePath(fileName)))
         newFunds = []
         for fund in funds :
             newFund=[fund[0], fund[1], date.today(), fund[5], fund[6], fund[8], fund[7]] 

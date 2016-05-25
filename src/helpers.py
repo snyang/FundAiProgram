@@ -14,7 +14,8 @@ __all__ = ['spiderHelper',
            'fileHelper',
            'systemHelper',
            'productContext',
-           'sqliteHelper']
+           'sqliteHelper',
+           'typeHelper']
 
 
 class productContext:
@@ -95,7 +96,7 @@ class spiderHelper:
         if (fn_parse != None):
             requestedContent = fn_parse(requestedContent)
         if (fileName != None):
-            fileHelper.save(spiderHelper.getFilePath(fileName), requestedContent)
+            fileHelper.save(fileName, requestedContent)
 
         return requestedContent
 
@@ -121,6 +122,10 @@ class fileHelper:
                         "w", encoding=spiderHelper.FILE_ENCODING)
             file.write(content)
             file.close()
+            
+    def savejson(filename, content):
+        fileHelper.save(filename, 
+                json.dumps(content, ensure_ascii=False, indent=4))
 
     def read(fileName):
         if (fileName != None):
@@ -130,10 +135,24 @@ class fileHelper:
             file.close()
             return content
 
+    def readjson(filename):
+        return json.loads(fileHelper.read(filename))
+
     def delete(filePattern):
         for f in glob.glob(filePattern):
             os.remove(f)
+    
+class typeHelper:
+    def toStr(value, format = None):
+        if (isinstance(value, date)):
+            if (format == None):
+                format = '%Y-%m-%d'
+            return value.strftime(format)
+        else:
+            return value.__str__()
 
+    def toDate(str):
+        return datetime.strptime(str, "%Y-%m-%d").date()
 
 class systemHelper:
     startTime = datetime.now()
@@ -151,10 +170,8 @@ class systemHelper:
         # create console handler with a higher log level
         ch = logging.StreamHandler(stream=sys.stdout)
         ch.setLevel(logging.DEBUG)
-        formatter = logging.Formatter(
-            '%(levelname)s - %(asctime)s - %(message)s')
+        formatter = logging.Formatter('%(levelname)s - %(asctime)s - %(message)s')
         ch.setFormatter(formatter)
-        # add the handlers to the logger
         logger.addHandler(ch)
    
     def start() :

@@ -128,7 +128,7 @@ class fileHelper:
             
     def savejson(filename, content):
         fileHelper.save(filename, 
-                json.dumps(content, ensure_ascii=False, indent=4))
+                json.dumps(content, ensure_ascii=False, indent=4, sort_keys=True))
 
     def read(fileName):
         if (fileName != None):

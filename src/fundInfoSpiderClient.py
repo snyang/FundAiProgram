@@ -474,8 +474,6 @@ class RequestFundBasicInfoTask(task):
                     future = executor.submit(
                         self.requestFundInfo,
                         fundCode)
-                    # future.add_done_callback(
-                    #         FundThreadCallbackHandler(fundCode).handle_callback)
                 except Exception as e:
                     logging.getLogger().warn(
                         "Failed {0}. {1}".format(fundCode, e))
@@ -484,7 +482,6 @@ class RequestFundBasicInfoTask(task):
         executor.shutdown(wait=True)
             
         fileName = fundSpiderContext.getFundBasicInfoFileName()
-        self.fundList = sort(self.fundList, key=lambda item: item['code'])
         fileHelper.savejson(fileName, self.fundList)
         logging.getLogger().info("Total: {}".format(self.successFunds))
             
@@ -501,8 +498,6 @@ class RequestFundBasicInfoTask(task):
             self.onSuccess(fundCode)
         except Exception as e:
             fileHelper.save(filename + ".txt", content)
-            if (self.debug):
-                raise
             logging.getLogger().exception("Failed {0}. Exception : {1}".format(fundCode, e))
 
     def onSuccess(self, fundCode):

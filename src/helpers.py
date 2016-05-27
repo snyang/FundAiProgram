@@ -94,8 +94,10 @@ class spiderHelper:
         requestedContent = html.decode(unicode, "backslashreplace")
 
         if (fn_parse != None):
+            if (fileName != None):
+                fileHelper.save(fileName + ".txt", requestedContent)
             requestedContent = fn_parse(requestedContent)
-        if (fileName != None):
+        if (fileName != None and requestedContent != None):
             fileHelper.save(fileName, requestedContent)
 
         return requestedContent
@@ -118,6 +120,7 @@ class fileHelper:
 
     def save(fileName, content):
         if (fileName != None):
+            fileHelper.createParentDirectory(fileName)
             file = open(fileName,
                         "w", encoding=spiderHelper.FILE_ENCODING)
             file.write(content)

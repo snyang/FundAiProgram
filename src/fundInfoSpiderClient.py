@@ -21,8 +21,6 @@ class fundSpiderContext:
     configuration_file = "fund_spider.json"
     host = "http://fund.eastmoney.com"
     all_funds_html_link = "{0}/fund.html#os_0;isall_1;ft_;pt_1"
-    all_funds_file = "all_funds.json"
-    history_fund_file = "history_{}.json"
     property_fail_funds = "fail_funds"
 
     def __init__(self):
@@ -47,24 +45,35 @@ class fundSpiderContext:
     def getAllCompaniesFileName() :
         return spiderHelper.getFilePath("all_companies.json")
 
+    def getCompanyToFundLink(companyCode) :
+        return "{}/company/{}.html".format(fundSpiderContext.host, companyCode)
+        
+    def getCompanyToFundFileName(companyCode) :
+        return spiderHelper.getFilePath("/company/company_fund_{}.json".format(companyCode))
+        
     def getAllFundsDataLink(day=date.today()):
         return "{}/Data/Fund_JJJZ_Data.aspx??t=1&lx=1&letter=&gsid=&text=&sort=zdf,desc&page=1,9999&feature=|&dt={}&atfc=&onlySale=0".format(
             fundSpiderContext.host,
             int(time.mktime(day.timetuple())))
+
+    def getAllFundsFileName(day=date.today()):
+        return spiderHelper.getFilePath("all_funds.json".format(typeHelper.toStr(day, '%Y_%m_%d')))
 
     def getFundHistoryDataLink(fundCode, page, count, startDate, endDate):
         return "{}/f10/F10DataApi.aspx?type=lsjz&code={}&page={}&per={}&sdate={}&edate={}&rt=0.17680868120777338".format(
             fundSpiderContext.host,
             fundCode, page, count, typeHelper.toStr(startDate), typeHelper.toStr(endDate))
 
-    def getFundBaseInfoLink(fundCode):
+    def getFundHistoryFileName(fundCode):
+        return spiderHelper.getFilePath("/history/history_{}.json".format(fundCode))
+
+    def getFundBasicInfoLink(fundCode):
         return "{}/f10/jbgk_{}.html".format(fundSpiderContext.host, fundCode)
 
-    def getAllFundsFileName(day=date.today()):
-        return spiderHelper.getFilePath(fundSpiderContext.all_funds_file.format(typeHelper.toStr(day, '%Y_%m_%d')))
-
-    def getFundHistoryFileName(fundCode):
-        return spiderHelper.getFilePath(fundSpiderContext.history_fund_file.format(fundCode))
+    def getFundBasicInfoFileName(fundCode = None):
+        if (fundCode == None) :
+            return spiderHelper.getFilePath("/funds_info.json")
+        return spiderHelper.getFilePath("/fund/fund_{}.json".format(fundCode))
 
     def getProperty(self, key):
         return self.configuration[key]
@@ -140,18 +149,14 @@ class RequestAllFundsTask(task):
 
     def run(self):
         self.day = date.today()
-        self._requestAllFunds(fundSpiderContext.getAllFundsFileName())
+        filename = fundSpiderContext.getAllFundsFileName()
+        spiderHelper.saveRequest(
+            fundSpiderContext.getAllFundsDataLink(self.day),
+            "utf-8",
+            filename,
+            self.parseToJson)
 
-    def _requestAllFunds(self, filename):
-        if (fileHelper.exists(filename) == False):
-            day = date.today()
-            spiderHelper.saveRequest(
-                fundSpiderContext.getAllFundsDataLink(day),
-                "utf-8",
-                filename,
-                self.parseAllFundsRequestToJson)
-
-    def parseAllFundsRequestToJson(self, content):
+    def parseToJson(self, content):
         fundsString = content[content.find("[["): content.find("]]") + 2]
         funds = eval(fundsString)
         fundList = {"date": typeHelper.toStr(self.day),
@@ -388,23 +393,160 @@ class RequestAllCompaniesTask(task):
                         'pinyin' : data[5],
                         'createDate' : data[2],
                         'capital' : float(data[7]) if len(data[7]) > 0 else None,
-                        'manager' : data[4]}
+                        'manager' : data[4],
+                        'fundCount' : int(data[3]) if len(data[3]) > 0 else 0}
             companies.append(compnay)
             
         logging.getLogger().info("Found companies %d.", len(companies))
         return json.dumps(companies, ensure_ascii=False, indent=4, sort_keys=True)
-    
+        
+class RequestCompanyToFundTask(task):
+    def __init__(self, context, debug=False):
+        self.context = context
+        self.debug = debug
+        self.code = ""
+        self.name = ""
+        self.fundCount = 0
+        
+    def run(self):
+        self.day = date.today()
+        companies = fileHelper.readjson(fundSpiderContext.getAllCompaniesFileName())
+        i  = 0
+        for company in companies:
+            i += 1
+            if (self.debug and i > 1):
+                break;
+            self.code = company['code']
+            self.name = company['name']
+            self.fundCount = company['fundCount']
+            
+            spiderHelper.saveRequest(
+                fundSpiderContext.getCompanyToFundLink(self.code),
+                "gb2312",
+                fundSpiderContext.getCompanyToFundFileName(self.code),
+                self.parseToJson)
+            logging.getLogger().info("Done. %s.", self.code)
+            
+    def parseToJson(self, content):
+        content = content.replace('</br>', '<br/>')
+        soup = BeautifulSoup(content, "html.parser")
+        companyFundList = {}
+        for table in soup.find_all('table', class_='data_table'):
+            data = []
+            for td in table.find_all('td', class_='txt_left'):
+                fundCode = td.text[len(td.a.text):len(td.text)]
+                compnayFund = {'companyCode' : self.code,
+                            'companyName' : self.name,
+                            'fundCode': fundCode,
+                            'fundName' : td.a.text}
+                companyFundList[fundCode] = compnayFund
+        if (self.fundCount == len(companyFundList)):
+            logging.getLogger().info("'%s' fund count %d matched.", self.code, self.fundCount)
+        else :
+            logging.getLogger().error("'%s' fund count %d does not match %d.", self.code, self.fundCount, len(companyFundList))
+            
+        return json.dumps(companyFundList, ensure_ascii=False, indent=4, sort_keys=True)
+ 
+class RequestFundBasicInfoTask(task):
+    def __init__(self, context, debug=False):
+        self.lock = Lock()
+        self.context = context
+        self.debug = debug
+        self.failedFunds = {}
+        self.fundList = {}
+        self.successFunds = 0
+        self.fundsCount = 0
+        
+    def run(self):
+        self.day = date.today()
+        funds = fileHelper.readjson(fundSpiderContext.getAllFundsFileName())['funds']
+        self.fundsCount = len(funds)
+        i  = 0
+        with ThreadPoolExecutor(max_workers=10) as executor:
+            for fund in funds:
+                try:
+                    i += 1
+                    if (self.debug and i > 10):
+                        break;
+                    
+                    fundCode = fund['code']
+                    fundName = fund['name']
+                    future = executor.submit(
+                        self.requestFundInfo,
+                        fundCode)
+                    # future.add_done_callback(
+                    #         FundThreadCallbackHandler(fundCode).handle_callback)
+                except Exception as e:
+                    logging.getLogger().warn(
+                        "Failed {0}. {1}".format(fundCode, e))
+
+        # wait all threads finish.
+        executor.shutdown(wait=True)
+            
+        fileName = fundSpiderContext.getFundBasicInfoFileName()
+        self.fundList = sort(self.fundList, key=lambda item: item['code'])
+        fileHelper.savejson(fileName, self.fundList)
+        logging.getLogger().info("Total: {}".format(self.successFunds))
+            
+    def requestFundInfo(self, fundCode):
+        filename = fundSpiderContext.getFundBasicInfoFileName(fundCode)
+        content = ""
+        try :
+            fileHelper.delete(filename + ".txt")
+            content = spiderHelper.saveRequest(
+                        fundSpiderContext.getFundBasicInfoLink(fundCode),
+                        "gb2312")
+            fund = self.parseToJson(content, fundCode)
+            self.fundList[fundCode] = fund
+            self.onSuccess(fundCode)
+        except Exception as e:
+            fileHelper.save(filename + ".txt", content)
+            if (self.debug):
+                raise
+            logging.getLogger().exception("Failed {0}. Exception : {1}".format(fundCode, e))
+
+    def onSuccess(self, fundCode):
+        with self.lock :
+            #self.failedFunds.pop(fundCode)
+            self.successFunds += 1
+            logging.getLogger().info("Done ({}/{}) '{}'".format(self.successFunds, self.fundsCount, fundCode))
+
+    def parseToJson(self, content, fundCode):
+        soup = BeautifulSoup(content, "html.parser")
+        table = soup.find('table', class_='info w790')
+        
+        data = []
+        for td in table.find_all('td'):
+            data.append(td)
+        fund = {
+                'code' : fundCode,
+                'name' : data[1].text,
+                'fullname' : data[0].text,
+                'issueDate' : data[4].text.replace('年', '-').replace('月', '-').replace('日', ''),
+                'manager' : data[10].text,
+                'company' : data[8].text
+               }
+        return fund
+   
 if __name__ == '__main__':
     import sys
     systemHelper.init()
     # with RequestAllFundsTask(fundSpiderContext()) as task:
-    #    task.run()
+    #     task.run()
     # with RequestFundsHistoryTask(fundSpiderContext()) as task:
     #    task.run()
     # get Fund Company information
-    with RequestAllCompaniesTask(fundSpiderContext()) as task:
+    # with RequestAllCompaniesTask(fundSpiderContext()) as task:
+    #    task.run()
+       
+    # # get Company - Fund information
+    # with RequestCompanyToFundTask(fundSpiderContext()) as task:
+    #    task.run()
+    
+    # get Fund - basic information
+    with RequestFundBasicInfoTask(fundSpiderContext()) as task:
        task.run()
-    # get Company - Fund information
-    # get Fund Manager data
+
     # get Manager - Fund data
+    # get Fund Manager data
     systemHelper.end()

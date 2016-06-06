@@ -95,7 +95,7 @@ class spiderHelper:
 
         if (fn_parse != None):
             if (fileName != None):
-                fileHelper.save(fileName + ".txt", requestedContent)
+                fileHelper.save(fileName + ".txt", html)
             requestedContent = fn_parse(requestedContent)
         if (fileName != None and requestedContent != None):
             fileHelper.save(fileName, requestedContent)
